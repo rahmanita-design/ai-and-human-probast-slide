@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROBAST+AI: Trusting AI in Human Healthcare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a0a0b;
+    --ink-rgb: 10,10,11;
+    --paper: #f1efea;
+    --paper-rgb: 241,239,234;
+    --paper-tint: #e8e5de;
+    --ink-tint: #18181a;
+    --accent: #c2593f;
+    --teal: #3b8276;
+
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    --serif-en: "Playfair Display", "Source Serif 4", Georgia, serif;
+    --serif-body-en: "Source Serif 4", Georgia, serif;
+    --sans-zh: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--sans-zh);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ============ WebGL Ambient Particle Background ============ */
+  canvas.bg {
+    position: fixed; inset: 0; width: 100vw; height: 100vh;
+    z-index: 0; display: block; transition: opacity 1.2s ease;
+  }
+  canvas#bg-canvas { opacity: 0.85; }
+  body.low-power canvas.bg { display: none !important; }
+
+  /* ============ Deck Container & Slide Rules ============ */
+  #deck {
+    position: fixed; inset: 0;
+    width: 700vw; height: 100vh;
+    display: flex; flex-wrap: nowrap;
+    transition: transform 0.85s cubic-bezier(0.77, 0, 0.175, 1);
+    z-index: 10;
+    will-change: transform;
+  }
+
+  .slide {
+    width: 100vw; height: 100vh;
+    flex: 0 0 100vw;
+    position: relative;
+    padding: 7vh 7vw 9vh 7vw;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+  .slide.light { color: var(--ink); background: var(--paper); }
+  .slide.dark { color: var(--paper); background: var(--ink); }
+
+  .slide::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    pointer-events: none; transition: background 0.7s ease;
+  }
+  .slide.light::before { background: rgba(var(--paper-rgb), 0.82); backdrop-filter: blur(3px); }
+  .slide.dark::before { background: rgba(var(--ink-rgb), 0.82); backdrop-filter: blur(3px); }
+
+  .slide.hero.light::before { background: rgba(var(--paper-rgb), 0.25); backdrop-filter: none; }
+  .slide.hero.dark::before { background: rgba(var(--ink-rgb), 0.22); backdrop-filter: none; }
+
+  .slide.hero::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+  .slide.hero.light::after {
+    background: linear-gradient(180deg, rgba(var(--paper-rgb),0.35) 0%, rgba(var(--paper-rgb),0) 18%, rgba(var(--paper-rgb),0) 82%, rgba(var(--paper-rgb),0.35) 100%);
+  }
+  .slide.hero.dark::after {
+    background: linear-gradient(180deg, rgba(var(--ink-rgb),0.4) 0%, rgba(var(--ink-rgb),0) 18%, rgba(var(--ink-rgb),0) 82%, rgba(var(--ink-rgb),0.4) 100%);
+  }
+
+  /* ============ Magazine Chrome ============ */
+  .chrome {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: max(11px, 0.78vw);
+    letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.65;
+    margin-bottom: 2vh;
+  }
+  .chrome .left, .chrome .right { display: flex; gap: 2em; align-items: center; }
+  .chrome .sep { width: 32px; height: 1px; background: currentColor; opacity: 0.4; }
+
+  .foot {
+    margin-top: auto;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    font-family: var(--mono); font-size: max(11px, 0.78vw);
+    letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.55;
+  }
+  .foot .title { font-family: var(--serif-en); font-style: italic; text-transform: none; font-size: 13px; opacity: 0.85; }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.24em; text-transform: uppercase; padding: 5px 12px;
+    border: 1px solid currentColor; opacity: 0.85;
+  }
+
+  /* ============ Typography ============ */
+  .kicker {
+    font-family: var(--mono); font-size: max(11px, 0.82vw);
+    letter-spacing: 0.28em; text-transform: uppercase; opacity: 0.6;
+    margin-bottom: 2.2vh;
+  }
+  .display {
+    font-family: var(--serif-en); font-weight: 700;
+    font-size: min(6.8vw, 84px); line-height: 0.95; letter-spacing: -0.025em;
+  }
+  .h1 {
+    font-family: var(--serif-en); font-weight: 700;
+    font-size: min(4vw, 50px); line-height: 1.08; letter-spacing: -0.015em;
+  }
+  .h2 {
+    font-family: var(--serif-en); font-weight: 600;
+    font-size: min(2.6vw, 34px); line-height: 1.2; letter-spacing: -0.01em;
+  }
+  .body-text {
+    font-family: var(--sans-zh); font-weight: 400;
+    font-size: max(15px, 1.15vw); line-height: 1.7; opacity: 0.82;
+  }
+  .lead {
+    font-family: var(--serif-body-en); font-style: italic; font-weight: 400;
+    font-size: max(18px, 1.5vw); line-height: 1.5; opacity: 0.88;
+  }
+  em { font-style: italic; font-family: var(--serif-en); color: var(--accent); }
+
+  /* ============ Layout Helpers ============ */
+  .col { display: flex; flex-direction: column; gap: 2.2vh; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 4.5vw; flex: 1; align-items: center; }
+  .split-55 { display: grid; grid-template-columns: 55fr 45fr; gap: 4.5vw; flex: 1; align-items: center; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3vw; flex: 1; align-content: center; }
+  .grid-4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3vh 3vw; flex: 1; align-content: center; }
+
+  /* ============ Stat Cards & Callouts ============ */
+  .stat { display: flex; flex-direction: column; gap: 0.8vh; }
+  .stat .n { font-family: var(--serif-en); font-weight: 800; font-size: 5.5vw; line-height: 0.9; letter-spacing: -0.03em; }
+  .stat .l { font-family: var(--sans-zh); font-size: max(14px, 1.05vw); opacity: 0.8; margin-top: 0.8vh; font-weight: 400; line-height: 1.5; }
+  .stat .m { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.55; }
+
+  .callout {
+    padding: 2.8vh 2vw; border-left: 3px solid var(--accent); position: relative;
+    font-family: var(--serif-body-en); font-size: max(16px, 1.25vw); line-height: 1.6; opacity: 0.92;
+  }
+  .slide.light .callout { background: rgba(var(--ink-rgb), 0.04); }
+  .slide.dark .callout { background: rgba(var(--paper-rgb), 0.05); }
+
+  .pillar { display: flex; flex-direction: column; gap: 1.6vh; padding: 2vh 0; border-top: 1px solid currentColor; border-color: rgba(127,127,127,0.3); }
+  .pillar .num { font-family: var(--mono); font-size: 11px; letter-spacing: 0.24em; opacity: 0.5; }
+  .pillar .t { font-family: var(--serif-en); font-weight: 700; font-size: 1.6vw; line-height: 1.15; }
+  .pillar .d { font-family: var(--sans-zh); font-weight: 400; font-size: max(13px, 1vw); opacity: 0.78; line-height: 1.6; }
+
+  /* ============ Floating Navigation ============ */
+  #nav {
+    position: fixed; left: 50%; bottom: 2.5vh; transform: translateX(-50%);
+    z-index: 30; display: flex; gap: 10px; padding: 8px 16px; border-radius: 999px;
+    background: rgba(0,0,0,0.35); backdrop-filter: blur(10px);
+  }
+  #nav .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3);
+    cursor: pointer; transition: all 0.3s ease; border: 0; padding: 0;
+  }
+  #nav .dot:hover { background: rgba(255,255,255,0.6); transform: scale(1.2); }
+  #nav .dot.active { background: rgba(255,255,255,0.95); width: 24px; border-radius: 999px; }
+
+  body.light-bg #nav { background: rgba(255,255,255,0.45); }
+  body.light-bg #nav .dot { background: rgba(var(--ink-rgb), 0.25); }
+  body.light-bg #nav .dot.active { background: rgba(var(--ink-rgb), 0.9); }
+
+  #hint {
+    position: fixed; bottom: 2.8vh; right: 3vw; z-index: 30;
+    display: flex; align-items: center; gap: 0.7em;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+    opacity: 0.5; color: var(--paper); mix-blend-mode: difference;
+  }
+  #hint button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4em; }
+  #hint .key { padding: 0.15em 0.4em; border: 1px solid currentColor; border-radius: 3px; }
+
+  /* ============ Overview Modal (ESC) ============ */
+  #overview-modal {
+    position: fixed; inset: 0; z-index: 100; display: none;
+    background: rgba(10,10,11,0.94); backdrop-filter: blur(15px);
+    padding: 6vh 6vw; grid-template-rows: auto 1fr; gap: 4vh;
+  }
+  #overview-modal.active { display: grid; }
+  .overview-header { display: flex; justify-content: space-between; align-items: center; color: var(--paper); font-family: var(--mono); letter-spacing: 0.2em; }
+  .overview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2vw; overflow-y: auto; padding-right: 1vw; }
+  .overview-card {
+    background: #18181a; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+    padding: 2.5vh 2vw; cursor: pointer; transition: all 0.25s ease; color: #fff;
+  }
+  .overview-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+  .overview-card .num { font-family: var(--mono); font-size: 11px; opacity: 0.5; }
+  .overview-card .title { font-family: var(--serif-en); font-size: 1.3vw; font-weight: 600; margin-top: 1vh; }
+
+  /* ============ Speaker Notes Overlay (P Key) ============ */
+  #speaker-panel {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 90; display: none;
+    background: #141619; color: #e2e4e9; padding: 20px 40px; border-top: 2px solid var(--accent);
+    font-family: var(--sans-zh); box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+  }
+  #speaker-panel.active { display: block; }
+  .speaker-flex { display: flex; justify-content: space-between; gap: 40px; align-items: flex-start; }
+  .speaker-notes-content { flex: 1; font-size: 15px; line-height: 1.6; color: #cbd0d8; }
+  .speaker-notes-content strong { color: var(--accent); font-weight: 600; }
+  .speaker-meta-box { width: 220px; font-family: var(--mono); font-size: 12px; opacity: 0.7; }
+</style>
+</head>
+<body class="dark-bg">
+
+<!-- Ambient Canvas Background -->
+<canvas id="bg-canvas" class="bg"></canvas>
+
+<!-- Main Presentation Deck -->
+<div id="deck">
+
+  <!-- SLIDE 1: Cover Hero -->
+  <section class="slide dark hero" data-notes="BMJ 2025 Special Report: Introduce PROBAST+AI—the international consensus tool for evaluating prediction models in medicine. Focus on the core synthesis of machine algorithms and human clinical judgment.">
+    <div class="chrome">
+      <div class="left">
+        <span class="tag">BMJ RESEARCH · 2025</span>
+        <span class="sep"></span>
+        <span>PROBAST+AI CONSENSUS REPORT</span>
+      </div>
+      <div class="right">
+        <span>BMJ 2025;388:e082505</span>
+      </div>
+    </div>
+
+    <div class="col" style="margin-top: auto; margin-bottom: auto; max-width: 78vw;">
+      <div class="kicker">CLINICAL PREDICTION & ALGORITHMIC INTEGRITY</div>
+      <h1 class="display">PROBAST+AI: Trusting <em>AI</em> in Human Healthcare</h1>
+      <p class="lead" style="margin-top: 3vh; max-width: 62vw;">
+        Evaluating methodological quality, algorithmic bias, and real-world clinical applicability for regression and artificial intelligence models.
+      </p>
+      <p style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.15em; opacity: 0.55; margin-top: 2vh;">
+        AUTHORS: Karel G.M. Moons, Johanna Damen, Maarten van Smeden, Gary Collins, et al.
+      </p>
+    </div>
+
+    <div class="foot">
+      <div class="title">PROBAST+AI: AI & Human Healthcare</div>
+      <div>SLIDE 01 / 07</div>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: The Clinical AI Paradox -->
+  <section class="slide light" data-notes="Slide 2: Address the AI paradox in healthcare. While thousands of clinical models are published annually, reviews show high risk of bias, poor reporting, data leakage, and uncalibrated risk predictions.">
+    <div class="chrome">
+      <div class="left">
+        <span class="kicker" style="margin:0">01 / THE CLINICAL AI PARADOX</span>
+      </div>
+      <div class="right">
+        <span>BACKGROUND</span>
+      </div>
+    </div>
+
+    <div class="split-55" style="margin-top: auto; margin-bottom: auto;">
+      <div class="col">
+        <h2 class="h1">The Explosion of <em>Unvetted</em> Models</h2>
+        <div class="callout" style="margin-top: 2vh;">
+          "Accessibility of cloud compute and machine learning tools has created an avalanche of clinical prediction models—yet the vast majority suffer from high risk of bias, class imbalance errors, and unverified clinical utility."
+        </div>
+      </div>
+      <div class="col" style="gap: 2.5vh;">
+        <div style="border-bottom: 1px solid rgba(0,0,0,0.15); padding-bottom: 1.8vh;">
+          <h3 class="h2" style="font-size: 1.3vw; margin-bottom: 0.6vh;">381+ COVID-19 Models in 15 Months</h3>
+          <p class="body-text">An unprecedented wave of diagnostic and prognostic models was rushed to publication, but systematic reviews revealed systemic flaws and data leakage.</p>
+        </div>
+        <div style="border-bottom: 1px solid rgba(0,0,0,0.15); padding-bottom: 1.8vh;">
+          <h3 class="h2" style="font-size: 1.3vw; margin-bottom: 0.6vh;">The Threat of Academic "Spin"</h3>
+          <p class="body-text">Overinterpretation of performance metrics without proper external validation creates a false sense of accuracy, risking direct patient harm.</p>
+        </div>
+        <div>
+          <h3 class="h2" style="font-size: 1.3vw; margin-bottom: 0.6vh;">Why PROBAST-2019 Needed an AI Upgrade</h3>
+          <p class="body-text">Modern neural networks, tree ensembles, and complex data preprocessing require novel signaling questions for class imbalance, hyperparameter tuning, and fairness.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="title">PROBAST+AI: AI & Human Healthcare</div>
+      <div>SLIDE 02 / 07</div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3: Architectural Breakthrough -->
+  <section class="slide dark" data-notes="Slide 3: Explain the fundamental conceptual distinction introduced in PROBAST+AI: Model Development Quality (Manufacturing) vs Model Evaluation Bias (Performance Assessment).">
+    <div class="chrome">
+      <div class="left">
+        <span class="kicker" style="margin:0">02 / ARCHITECTURAL BREAKTHROUGH</span>
+      </div>
+      <div class="right">
+        <span>CONCEPTUAL MODEL</span>
+      </div>
+    </div>
+
+    <div class="col" style="margin-top: 2vh; margin-bottom: 2vh;">
+      <h2 class="h1">Development Quality vs. Evaluation Bias</h2>
+      <p class="body-text" style="max-width: 55vw;">PROBAST+AI explicitly separates the manufacturing process of a model from the audit of its performance estimates.</p>
+    </div>
+
+    <div class="split" style="margin-bottom: auto;">
+      <div class="col" style="background: rgba(255,255,255,0.04); padding: 3vh 2vw; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);">
+        <span class="tag" style="align-self: flex-start; background: var(--accent); color: #fff;">PART 1 · MODEL DEVELOPMENT</span>
+        <h3 class="h2" style="font-size: 1.8vw; margin-top: 1.5vh;">Methodological Quality</h3>
+        <p class="body-text" style="margin-top: 1vh;">
+          Evaluates the single "manufacturing" process of constructing the model—from participant sampling and feature selection to handling missing data and overfitting control.
+        </p>
+        <span style="font-family: var(--mono); font-size: 11px; opacity: 0.5; margin-top: 2vh;">16 TARGETED SIGNALING QUESTIONS</span>
+      </div>
+
+      <div class="col" style="background: rgba(255,255,255,0.04); padding: 3vh 2vw; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);">
+        <span class="tag" style="align-self: flex-start; background: var(--teal); color: #fff;">PART 2 · MODEL EVALUATION</span>
+        <h3 class="h2" style="font-size: 1.8vw; margin-top: 1.5vh;">Risk of Bias & Validation</h3>
+        <p class="body-text" style="margin-top: 1vh;">
+          Evaluates the accuracy of performance claims across apparent, internal, and external validation datasets. Ensures discrimination, calibration, and net benefit are true.
+        </p>
+        <span style="font-family: var(--mono); font-size: 11px; opacity: 0.5; margin-top: 2vh;">18 TARGETED SIGNALING QUESTIONS</span>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="title">PROBAST+AI: AI & Human Healthcare</div>
+      <div>SLIDE 03 / 07</div>
+    </div>
+  </section>
+
+  <!-- SLIDE 4: The 4 Core Assessment Domains -->
+  <section class="slide light" data-notes="Slide 4: Walk through the 4 domains of PROBAST+AI: Participants & Data Sources, Predictors, Outcome, and Analysis.">
+    <div class="chrome">
+      <div class="left">
+        <span class="kicker" style="margin:0">03 / THE FRAMEWORK</span>
+      </div>
+      <div class="right">
+        <span>4 DOMAINS OF INTEGRITY</span>
+      </div>
+    </div>
+
+    <div class="col" style="margin-top: 1vh; margin-bottom: 2vh;">
+      <h2 class="h1">The Four Pillars of Algorithmic Integrity</h2>
+      <p class="body-text" style="max-width: 55vw;">A unified audit standard applying equally to traditional regression and modern deep learning.</p>
+    </div>
+
+    <div class="grid-4" style="margin-bottom: auto;">
+      <div class="pillar">
+        <span class="num">DOMAIN 01</span>
+        <div class="t">Participants & Data Sources</div>
+        <div class="d">Ensures study design and participant inclusion yield a representative dataset matching the intended target population.</div>
+      </div>
+      <div class="pillar">
+        <span class="num">DOMAIN 02</span>
+        <div class="t">Predictors (Features)</div>
+        <div class="d">Requires consistent definition, blinded measurement without knowledge of outcome data, and strict prevention of data leakage.</div>
+      </div>
+      <div class="pillar">
+        <span class="num">DOMAIN 03</span>
+        <div class="t">Outcome Determination</div>
+        <div class="d">Verifies objective, standard outcome definitions assessed independently without predictor data contamination.</div>
+      </div>
+      <div class="pillar">
+        <span class="num">DOMAIN 04</span>
+        <div class="t">Analysis & Resampling</div>
+        <div class="d">Audits sample size adequacy, continuous feature handling, class imbalance recalibration, and calibration vs discrimination curves.</div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="title">PROBAST+AI: AI & Human Healthcare</div>
+      <div>SLIDE 04 / 07</div>
+    </div>
+  </section>
+
+  <!-- SLIDE 5: Algorithmic Bias & Fairness -->
+  <section class="slide dark" data-notes="Slide 5: Emphasize fairness and algorithmic bias. Mention standards like STANDING Together for data diversity across race, gender, age, and health settings to prevent healthcare disparities.">
+    <div class="chrome">
+      <div class="left">
+        <span class="kicker" style="margin:0">04 / ETHICS & EQUITY</span>
+      </div>
+      <div class="right">
+        <span>ALGORITHMIC FAIRNESS</span>
+      </div>
+    </div>
+
+    <div class="split" style="margin-top: auto; margin-bottom: auto;">
+      <div class="col">
+        <h2 class="h1">Human Equity & <em>Algorithmic</em> Bias</h2>
+        <p class="body-text" style="margin-top: 1.5vh;">
+          Medical prediction models must not perpetuate systemic health disparities. PROBAST+AI embeds fairness assessments into every domain—demanding data diversity across age, sex, ethnicity, and geography.
+        </p>
+        <div class="callout" style="border-color: #6bb39a; margin-top: 2vh;">
+          "Fairness means prediction models are designed to avoid adverse discrimination against any subpopulation and never widen existing healthcare inequities."
+        </div>
+      </div>
+
+      <div class="grid-3" style="grid-template-columns: 1fr; gap: 2.5vh; padding-left: 2vw;">
+        <div class="stat">
+          <span class="m">CONSENSUS SCOPE</span>
+          <span class="n" style="color: var(--accent);">34</span>
+          <p class="l">Total signaling questions rigorously refined through 3 international Delphi rounds and expert consensus.</p>
+        </div>
+        <div class="stat">
+          <span class="m">DATA DIVERSITY</span>
+          <span class="n" style="color: #6bb39a;">100%</span>
+          <p class="l">Alignment with STANDING Together standards for inclusive health datasets in AI.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="title">PROBAST+AI: AI & Human Healthcare</div>
+      <div>SLIDE 05 / 07</div>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: Stakeholder Ecosystem -->
+  <section class="slide light" data-notes="Slide 6: Discuss how PROBAST+AI serves the entire human healthcare ecosystem—clinicians, AI developers, researchers, reviewers, guideline developers, and regulators.">
+    <div class="chrome">
+      <div class="left">
+        <span class="kicker" style="margin:0">05 / HUMAN ECOSYSTEM</span>
+      </div>
+      <div class="right">
+        <span>STAKEHOLDER BENEFITS</span>
+      </div>
+    </div>
+
+    <div class="col" style="margin-top: 2vh; margin-bottom: 3vh;">
+      <h2 class="h1">Empowering the Healthcare Ecosystem</h2>
+      <p class="body-text" style="max-width: 55vw;">PROBAST+AI translates complex data science into actionable guidance for human decision-makers.</p>
+    </div>
+
+    <div class="grid-3" style="margin-bottom: auto;">
+      <div class="pillar">
+        <span class="num">STAKEHOLDER 01</span>
+        <div class="t">Clinicians & Patients</div>
+        <div class="d">Verify if a model is applicable to their specific patient population before implementing it in daily bedside decision-making.</div>
+      </div>
+      <div class="pillar">
+        <span class="num">STAKEHOLDER 02</span>
+        <div class="t">AI Developers & Industry</div>
+        <div class="d">Adhere to rigorous pre-deployment benchmarks to prevent overfitting, class imbalance distortion, and data leakage.</div>
+      </div>
+      <div class="pillar">
+        <span class="num">STAKEHOLDER 03</span>
+        <div class="t">Regulators & Policy Makers</div>
+        <div class="d">Establish clear evidence-based criteria for Software as a Medical Device (SaMD), FDA approvals, and EU AI Act compliance.</div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="title">PROBAST+AI: AI & Human Healthcare</div>
+      <div>SLIDE 06 / 07</div>
+    </div>
+  </section>
+
+  <!-- SLIDE 7: Closing Manifesto -->
+  <section class="slide light hero" data-notes="Slide 7: Conclusion. Emphasize that clinical AI must earn human trust through rigor, transparency, and accountability.">
+    <div class="chrome">
+      <div class="left">
+        <span class="tag">06 / CONCLUSION</span>
+      </div>
+      <div class="right">
+        <span>THE ROAD AHEAD</span>
+      </div>
+    </div>
+
+    <div class="col" style="margin-top: auto; margin-bottom: auto; max-width: 78vw;">
+      <div class="kicker">BMJ 2025 CONSENSUS VISION</div>
+      <h1 class="display" style="font-size: min(6.5vw, 78px);">Clinical AI Must Earn <em>Human Trust.</em></h1>
+      <p class="lead" style="margin-top: 3vh; max-width: 60vw; font-size: max(19px, 1.7vw);">
+        PROBAST+AI bridges the gap between machine intelligence and biological care—ensuring that every algorithm deployed in medicine is rigorous, fair, and clinically sound.
+      </p>
+      <div style="margin-top: 4vh;">
+        <span class="tag" style="background: var(--ink); color: var(--paper);">READ THE FULL PAPER · BMJ 2025</span>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="title">PROBAST+AI: AI & Human Healthcare</div>
+      <div>SLIDE 07 / 07</div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Navigation Bar -->
+<div id="nav"></div>
+
+<!-- Key Hints -->
+<div id="hint">
+  <button id="btn-speaker"><span class="key">P</span> Speaker Mode</button>
+  <span style="opacity:0.3">|</span>
+  <button id="btn-overview"><span class="key">ESC</span> Index</button>
+  <span style="opacity:0.3">|</span>
+  <button id="btn-power"><span class="key">B</span> Static</button>
+</div>
+
+<!-- Overview Index Modal -->
+<div id="overview-modal">
+  <div class="overview-header">
+    <div>PROBAST+AI SLIDE DECK INDEX (ESC to exit)</div>
+    <div style="cursor:pointer" onclick="toggleOverview()">✕ CLOSE</div>
+  </div>
+  <div class="overview-grid" id="overview-grid"></div>
+</div>
+
+<!-- Speaker Notes Footer Panel -->
+<div id="speaker-panel">
+  <div class="speaker-flex">
+    <div class="speaker-notes-content">
+      <div style="font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.2em; margin-bottom: 6px;">SPEAKER NOTES</div>
+      <div id="speaker-notes-text">Notes will appear here...</div>
+    </div>
+    <div class="speaker-meta-box">
+      <div>PRESS <span style="color:#fff; border:1px solid #555; padding:1px 4px; border-radius:3px;">P</span> TO CLOSE</div>
+      <div style="margin-top:8px;">SLIDE: <span id="speaker-slide-num">1</span> / 7</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Presentation Deck Engine
+  const deck = document.getElementById('deck');
+  const slides = document.querySelectorAll('.slide');
+  const nav = document.getElementById('nav');
+  const totalSlides = slides.length;
+  let currentIndex = 0;
+  let isLowPower = false;
+
+  // Initialize Navigation Dots
+  slides.forEach((slide, idx) => {
+    const dot = document.createElement('button');
+    dot.className = `dot ${idx === 0 ? 'active' : ''}`;
+    dot.setAttribute('aria-label', `Go to slide ${idx + 1}`);
+    dot.onclick = () => goToSlide(idx);
+    nav.appendChild(dot);
+  });
+
+  const dots = document.querySelectorAll('#nav .dot');
+
+  function goToSlide(index) {
+    if (index < 0) index = 0;
+    if (index >= totalSlides) index = totalSlides - 1;
+    currentIndex = index;
+
+    deck.style.transform = `translateX(-${currentIndex * 100}vw)`;
+
+    // Update active dots
+    dots.forEach((dot, idx) => {
+      dot.classList.toggle('active', idx === currentIndex);
+    });
+
+    // Update body theme class for ambient background
+    const currentSlide = slides[currentIndex];
+    if (currentSlide.classList.contains('light')) {
+      document.body.classList.add('light-bg');
+      document.body.classList.remove('dark-bg');
+    } else {
+      document.body.classList.add('dark-bg');
+      document.body.classList.remove('light-bg');
+    }
+
+    // Update speaker notes
+    updateSpeakerNotes();
+  }
+
+  // Keyboard Event Listeners
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+      goToSlide(currentIndex + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      goToSlide(currentIndex - 1);
+    } else if (e.key === 'Escape') {
+      toggleOverview();
+    } else if (e.key === 'p' || e.key === 'P') {
+      toggleSpeakerMode();
+    } else if (e.key === 'b' || e.key === 'B') {
+      toggleLowPower();
+    }
+  });
+
+  // Overview Index Modal
+  const overviewModal = document.getElementById('overview-modal');
+  const overviewGrid = document.getElementById('overview-grid');
+
+  slides.forEach((slide, idx) => {
+    const card = document.createElement('div');
+    card.className = 'overview-card';
+    const titleEl = slide.querySelector('.h1, .display');
+    const titleText = titleEl ? titleEl.innerText.replace(/[\n\r]+/g, ' ') : `Slide ${idx + 1}`;
+    
+    card.innerHTML = `
+      <div class="num">SLIDE 0${idx + 1}</div>
+      <div class="title">${titleText}</div>
+    `;
+    card.onclick = () => {
+      goToSlide(idx);
+      toggleOverview();
+    };
+    overviewGrid.appendChild(card);
+  });
+
+  function toggleOverview() {
+    overviewModal.classList.toggle('active');
+  }
+
+  // Speaker Mode Toggle
+  const speakerPanel = document.getElementById('speaker-panel');
+  const speakerNotesText = document.getElementById('speaker-notes-text');
+  const speakerSlideNum = document.getElementById('speaker-slide-num');
+
+  function toggleSpeakerMode() {
+    speakerPanel.classList.toggle('active');
+    updateSpeakerNotes();
+  }
+
+  function updateSpeakerNotes() {
+    const currentSlide = slides[currentIndex];
+    const notes = currentSlide.getAttribute('data-notes') || 'No notes for this slide.';
+    speakerNotesText.innerHTML = notes;
+    speakerSlideNum.innerText = currentIndex + 1;
+  }
+
+  // Low Power Toggle
+  function toggleLowPower() {
+    isLowPower = !isLowPower;
+    document.body.classList.toggle('low-power', isLowPower);
+  }
+
+  document.getElementById('btn-speaker').onclick = toggleSpeakerMode;
+  document.getElementById('btn-overview').onclick = toggleOverview;
+  document.getElementById('btn-power').onclick = toggleLowPower;
+
+  // Touch Swipe Support
+  let touchStartX = 0;
+  window.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+  window.addEventListener('touchend', (e) => {
+    const touchEndX = e.changedTouches[0].clientX;
+    if (touchStartX - touchEndX > 50) goToSlide(currentIndex + 1);
+    if (touchEndX - touchStartX > 50) goToSlide(currentIndex - 1);
+  });
+
+  // Ambient Canvas Particle Shader Simulation
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let width, height, particles = [];
+
+  function resizeCanvas() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  }
+
+  class Particle {
+    constructor() {
+      this.reset();
+    }
+    reset() {
+      this.x = Math.random() * width;
+      this.y = Math.random() * height;
+      this.radius = Math.random() * 2 + 0.5;
+      this.vx = (Math.random() - 0.5) * 0.3;
+      this.vy = (Math.random() - 0.5) * 0.3;
+      this.alpha = Math.random() * 0.4 + 0.1;
+    }
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      if (this.x < 0 || this.x > width || this.y < 0 || this.y > height) this.reset();
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(194, 89, 63, ${this.alpha})`;
+      ctx.fill();
+    }
+  }
+
+  function initParticles() {
+    resizeCanvas();
+    particles = Array.from({ length: 45 }, () => new Particle());
+  }
+
+  function animate() {
+    if (!isLowPower) {
+      ctx.clearRect(0, 0, width, height);
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+    }
+    requestAnimationFrame(animate);
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  initParticles();
+  animate();
+</script>
+
+</body>
+</html>
